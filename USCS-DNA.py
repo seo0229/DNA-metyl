@@ -1,5 +1,6 @@
 import pandas as pd
 import requests
+import re
 
 # Load the Excel file
 file_path = 'Input.xlsx'
@@ -8,8 +9,11 @@ df = pd.read_excel(file_path)
 # UCSC Table Browser URL for DNA retrieval (configured for mm10)
 url = "https://genome.ucsc.edu/cgi-bin/das/mm10/dna"
 
-# Prepare the output DataFrame
-sequences = []
+# Prepare the output column
+fasta_sequences = []
+
+# Regex to clean XML tags
+xml_tag_pattern = r"<.*?>"
 
 # Iterate through the data
 for index, row in df.iterrows():
@@ -20,7 +24,7 @@ for index, row in df.iterrows():
 
         # Define the range for 150 bp upstream and downstream
         start = position - 150
-        end = position + 150
+        end = position + 149
 
         # Construct the request parameters
         params = {
@@ -33,31 +37,37 @@ for index, row in df.iterrows():
         if response.status_code == 200:
             # Parse and clean up the DNA sequence
             sequence_lines = response.text.splitlines()
-            sequence = "".join(sequence_lines[2:])  # Skip the header lines
-            sequence_upper = sequence.upper()  # Ensure uppercase
+            raw_sequence = "".join(sequence_lines[2:])  # Skip the first two header lines
 
-            # Save the sequence
-            sequences.append(sequence_upper)
+            # Remove XML tags using regex
+            sequence_cleaned = re.sub(xml_tag_pattern, "", raw_sequence).strip()
+
+            # Ensure uppercase DNA sequence
+            sequence_upper = sequence_cleaned.upper()
+
+            # Format the sequence in FASTA style
+            fasta_header = f">mm10_dna range=chr{chromosome}:{start}-{end} 5'pad=150 3'pad=150 strand=+ repeatMasking=none"
+            fasta_format = f"{fasta_header}\n{sequence_upper}"
+            fasta_sequences.append(fasta_format)
         else:
             # If the API call fails, add an error message
-            sequences.append(f"Error: HTTP {response.status_code}")
+            fasta_sequences.append(f"Error: HTTP {response.status_code}")
     except Exception as e:
         # Handle any processing errors
-        sequences.append(f"Error: {str(e)}")
+        fasta_sequences.append(f"Error: {str(e)}")
 
-# Add the sequences to the DataFrame
-df['SEQ 300 bp centered on the DM CG'] = sequences
+# Add the FASTA-formatted sequences to the DataFrame
+df['SEQ 300 bp centered on the DM CG'] = fasta_sequences
 
 # Save the updated DataFrame to a new Excel file
-output_excel_path = "Updated_Input_with_Sequences.xlsx"
+output_excel_path = "Updated_Input_with_FASTA_Sequences_Cleaned.xlsx"
 df.to_excel(output_excel_path, index=False)
 
 # Save sequences to FASTA as well (optional)
-fasta_output_path = "DNA_Sequences_API_Output.fasta"
+fasta_output_path = "DNA_Sequences_API_Output_Cleaned.fasta"
 with open(fasta_output_path, "w") as fasta_file:
-    for index, sequence in enumerate(sequences):
-        header = f">chr{df.iloc[index]['chr']}:{df.iloc[index]['position'] - 150}-{df.iloc[index]['position'] + 150}"
-        fasta_file.write(f"{header}\n{sequence}\n")
+    for fasta_entry in fasta_sequences:
+        fasta_file.write(f"{fasta_entry}\n")
 
-print(f"Updated Excel file saved to {output_excel_path}")
-print(f"FASTA file saved to {fasta_output_path}")
+print(f"Updated Excel file with FASTA sequences saved to {output_excel_path}")
+print(f"Cleaned FASTA file saved to {fasta_output_path}")
