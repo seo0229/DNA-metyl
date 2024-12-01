@@ -1,4 +1,4 @@
-# USCG-DNA
+# USCC-DNA
 Code to pull USCG DNA sequence data from chromosome position
 
 To obtain required packages:
