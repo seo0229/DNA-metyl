@@ -46,8 +46,9 @@ for index, row in df.iterrows():
             sequence_upper = sequence_cleaned.upper()
 
             # Format the sequence in FASTA style
-            fasta_header = f">mm10_dna range=chr{chromosome}:{start}-{end} 5'pad=150 3'pad=150 strand=+ repeatMasking=none"
-            fasta_format = f"{fasta_header}\n{sequence_upper}"
+            fasta_header = f">Sequence_{index+1} | chr{chromosome}:{start}-{end} strand=+"
+            formatted_sequence = "\n".join([sequence_upper[i:i+60] for i in range(0, len(sequence_upper), 60)])
+            fasta_format = f"{fasta_header}\n{formatted_sequence}"
             fasta_sequences.append(fasta_format)
         else:
             # If the API call fails, add an error message
@@ -60,11 +61,11 @@ for index, row in df.iterrows():
 df['SEQ 300 bp centered on the DM CG'] = fasta_sequences
 
 # Save the updated DataFrame to a new Excel file
-output_excel_path = "Updated_Input_with_FASTA_Sequences_Cleaned.xlsx"
+output_excel_path = "MethylData.xlsx"
 df.to_excel(output_excel_path, index=False)
 
 # Save sequences to FASTA as well (optional)
-fasta_output_path = "DNA_Sequences_API_Output_Cleaned.fasta"
+fasta_output_path = "MethylCleanedData.fasta"
 with open(fasta_output_path, "w") as fasta_file:
     for fasta_entry in fasta_sequences:
         fasta_file.write(f"{fasta_entry}\n")
